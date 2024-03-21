@@ -1,9 +1,10 @@
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Size},
-    pixelcolor::{BinaryColor, PixelColor},
+    pixelcolor::{BinaryColor, PixelColor, Rgb888, RgbColor},
     Pixel,
 };
+use std::cmp::max;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TriColor {
@@ -21,6 +22,28 @@ impl From<BinaryColor> for TriColor {
         match b {
             BinaryColor::On => Self::Black,
             BinaryColor::Off => Self::White,
+        }
+    }
+}
+
+impl From<TriColor> for Rgb888 {
+    fn from(b: TriColor) -> Self {
+        match b {
+            TriColor::White => Self::new(u8::MAX, u8::MAX, u8::MAX),
+            TriColor::Black => Self::new(0, 0, 0),
+            TriColor::Red => Self::new(u8::MAX, 0, 0),
+        }
+    }
+}
+
+impl From<Rgb888> for TriColor {
+    fn from(p: Rgb888) -> TriColor {
+        if p.r() > p.g() && p.r() > p.b() {
+            TriColor::Red
+        } else if max(max(p.r(), p.g()), p.b()) > u8::MAX / 2 {
+            TriColor::White
+        } else {
+            TriColor::Black
         }
     }
 }

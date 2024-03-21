@@ -74,6 +74,7 @@ name = "epd-spectra"
 version = "0.1.0"
 dependencies = [
  "embedded-graphics",
+ "embedded-graphics-core",
  "embedded-hal 1.0.0",
  "rppal",
 ]
