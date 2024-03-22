@@ -1,5 +1,5 @@
 use embedded_hal::{delay::DelayNs, digital::InputPin, digital::OutputPin, spi::SpiDevice};
-use std::{error::Error, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::DisplayBuffer;
 
@@ -20,6 +20,24 @@ const REG_DATA_INPUT_TEMP: &[u8] = &[0x19];
 const REG_DATA_ACTIVE_TEMP: &[u8] = &[0x02];
 const REG_DATA_PSR: &[u8] = &[0xcf, 0x8d];
 
+// Sadly we cannot use #[from] more than once.
+// See here for similiar problem: https://stackoverflow.com/questions/37347311/how-is-there-a-conflicting-implementation-of-from-when-using-a-generic-type
+#[derive(thiserror::Error, Debug)]
+pub enum Error<SpiError, DcError, RstError> {
+    #[error("SPI error: {0}")]
+    Spi(#[from] SpiError),
+    #[error("Error with GPIO 'DC': {0}")]
+    GpioDc(#[source] DcError),
+    #[error("Error with GPIO 'RESET': {0}")]
+    GpioRst(#[source] RstError),
+}
+
+type EpdError<SPI, DC, RST> = Error<
+    <SPI as embedded_hal::spi::ErrorType>::Error,
+    <DC as embedded_hal::digital::ErrorType>::Error,
+    <RST as embedded_hal::digital::ErrorType>::Error,
+>;
+
 /// Actual driver for e-paper display
 pub struct Epd<SPI, BUSY, DC, RST, DELAY> {
     /// busy pin, active low
@@ -39,10 +57,6 @@ where
     DC: OutputPin,
     RST: OutputPin,
     DELAY: DelayNs,
-    <BUSY as embedded_hal::digital::ErrorType>::Error: Error + 'static,
-    <DC as embedded_hal::digital::ErrorType>::Error: Error + 'static,
-    <RST as embedded_hal::digital::ErrorType>::Error: Error + 'static,
-    <SPI as embedded_hal::spi::ErrorType>::Error: Error + 'static,
 {
     /// Create a new e-paper driver and run initialization sequence
     pub fn new(
@@ -51,7 +65,7 @@ where
         dc: DC,
         rst: RST,
         delay: &mut DELAY,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, EpdError<SPI, DC, RST>> {
         let mut epd = Self {
             busy,
             dc,
@@ -63,8 +77,8 @@ where
         Ok(epd)
     }
 
-    fn init(&mut self, spi: &mut SPI, delay: &mut DELAY) -> Result<(), Box<dyn Error>> {
-        self.dc.set_high()?;
+    fn init(&mut self, spi: &mut SPI, delay: &mut DELAY) -> Result<(), EpdError<SPI, DC, RST>> {
+        self.dc.set_high().map_err(Error::GpioDc)?;
         self.reset(delay)?;
         self.soft_reset(spi)?;
         self.send_data(spi, Command::InputTemperature, REG_DATA_INPUT_TEMP)?;
@@ -78,7 +92,7 @@ where
         &mut self,
         display: &impl DisplayBuffer,
         spi: &mut SPI,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::BufferBlack, display.get_buffer_black())?;
         self.send_data(spi, Command::BufferRed, display.get_buffer_red())?;
         self.power_on(spi)?;
@@ -86,29 +100,33 @@ where
         Ok(())
     }
 
-    pub fn reset(&mut self, delay: &mut DELAY) -> Result<(), Box<dyn Error>> {
+    pub fn reset(&mut self, delay: &mut DELAY) -> Result<(), EpdError<SPI, DC, RST>> {
         delay.delay_ms(1);
-        self.rst.set_high()?;
+        self.rst.set_high().map_err(Error::GpioRst)?;
         delay.delay_ms(5);
-        self.rst.set_low()?;
+        self.rst.set_low().map_err(Error::GpioRst)?;
         delay.delay_ms(10);
-        self.rst.set_high()?;
+        self.rst.set_high().map_err(Error::GpioRst)?;
         delay.delay_ms(5);
         Ok(())
     }
 
-    pub fn power_on(&mut self, spi: &mut SPI) -> Result<(), Box<dyn Error>> {
+    pub fn power_on(&mut self, spi: &mut SPI) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::PowerOn, &[0x0])?;
         self.wait_busy();
         Ok(())
     }
 
-    pub fn power_off(&mut self, spi: &mut SPI, delay: &mut DELAY) -> Result<(), Box<dyn Error>> {
+    pub fn power_off(
+        &mut self,
+        spi: &mut SPI,
+        delay: &mut DELAY,
+    ) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::PowerOff, &[0x0])?;
         self.wait_busy();
-        self.dc.set_low()?;
+        self.dc.set_low().map_err(Error::GpioDc)?;
         delay.delay_ms(150);
-        self.rst.set_low()?;
+        self.rst.set_low().map_err(Error::GpioRst)?;
         Ok(())
     }
 
@@ -117,22 +135,22 @@ where
         spi: &mut SPI,
         cmd: Command,
         data: &[u8],
-    ) -> Result<(), Box<dyn Error>> {
-        self.dc.set_low()?;
+    ) -> Result<(), EpdError<SPI, DC, RST>> {
+        self.dc.set_low().map_err(Error::GpioDc)?;
         //TODO Implement single byte write or divide buffer into chunks. SPI hardware buffer might not be large enough for whole data.
         spi.write(&[cmd as u8])?;
-        self.dc.set_high()?;
+        self.dc.set_high().map_err(Error::GpioDc)?;
         spi.write(data)?;
         Ok(())
     }
 
-    fn soft_reset(&mut self, spi: &mut SPI) -> Result<(), Box<dyn Error>> {
+    fn soft_reset(&mut self, spi: &mut SPI) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::Psr, REG_DATA_SOFT_RESET)?;
         self.wait_busy();
         Ok(())
     }
 
-    fn display_refresh(&mut self, spi: &mut SPI) -> Result<(), Box<dyn Error>> {
+    fn display_refresh(&mut self, spi: &mut SPI) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::Refresh, &[0x0])?;
         self.wait_busy();
         Ok(())

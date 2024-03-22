@@ -1,4 +1,6 @@
 # Driver for Spectra E-Paper Displays from Pervasive Displays Inc
+[![Crates.io](https://img.shields.io/crates/v/epd-spectra.svg)](https://crates.io/crates/epd-spectra)
+[![Docs.rs](https://docs.rs/epd-spectra/badge.svg)](https://docs.rs/epd-spectra)
 
 This library contains a driver written in Rust for the Spectra tri-colour (white, black, red) e-paper displays from [Pervasive Displays Inc](https://github.com/PervasiveDisplays). The displays are often found in SES Imagotag electronic price labels. Technical details of the price labels can be found for example [here](https://github.com/andrei-tatar/imagotag-hack).
 
