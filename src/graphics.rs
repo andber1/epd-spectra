@@ -1,3 +1,5 @@
+//! Specific display buffers for each EPDs and embedded_graphics related implementations
+
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Size},
@@ -6,6 +8,7 @@ use embedded_graphics::{
 };
 use std::cmp::max;
 
+/// Colors supported by the e-paper displays
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TriColor {
     White,
@@ -48,6 +51,20 @@ impl From<Rgb888> for TriColor {
     }
 }
 
+/// Display rotation, only 90° increments supported
+#[derive(Clone, Copy, Default)]
+pub enum DisplayRotation {
+    /// No rotation
+    #[default]
+    Rotate0,
+    /// Rotate by 90 degrees clockwise
+    Rotate90,
+    /// Rotate by 180 degrees clockwise
+    Rotate180,
+    /// Rotate 270 degrees clockwise
+    Rotate270,
+}
+
 pub trait DisplayBuffer {
     fn get_buffer_black(&self) -> &[u8];
     fn get_buffer_red(&self) -> &[u8];
@@ -59,7 +76,18 @@ pub trait DisplayBuffer {
 pub struct Display<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize> {
     buffer_black: [u8; IMAGE_SIZE],
     buffer_red: [u8; IMAGE_SIZE],
-    //TODO implement rotation
+    rotation: DisplayRotation,
+}
+
+impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize>
+    Display<SIZE_V, SIZE_H, IMAGE_SIZE>
+{
+    pub fn set_rotation(&mut self, rotation: DisplayRotation) {
+        self.rotation = rotation;
+    }
+    pub fn rotation(&self) -> DisplayRotation {
+        self.rotation
+    }
 }
 
 impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize> DisplayBuffer
@@ -80,6 +108,7 @@ impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize> Default
         Self {
             buffer_black: [0; IMAGE_SIZE],
             buffer_red: [0; IMAGE_SIZE],
+            rotation: DisplayRotation::default(),
         }
     }
 }
@@ -88,7 +117,10 @@ impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize> OriginDimens
     for Display<SIZE_V, SIZE_H, IMAGE_SIZE>
 {
     fn size(&self) -> Size {
-        Size::new(SIZE_V, SIZE_H)
+        match self.rotation {
+            DisplayRotation::Rotate0 | DisplayRotation::Rotate180 => Size::new(SIZE_H, SIZE_V),
+            DisplayRotation::Rotate90 | DisplayRotation::Rotate270 => Size::new(SIZE_V, SIZE_H),
+        }
     }
 }
 
@@ -103,17 +135,21 @@ impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize> DrawTarget
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
         for pixel in pixels {
-            let Pixel(point, color) = pixel;
-            if (point.x < 0)
-                || (point.x >= SIZE_H as i32)
-                || (point.y < 0)
-                || point.y >= SIZE_V as i32
-            {
+            let Pixel(p, color) = pixel;
+
+            let (x, y) = match self.rotation {
+                DisplayRotation::Rotate0 => (p.x, p.y),
+                DisplayRotation::Rotate90 => (SIZE_H as i32 - 1 - p.y, p.x),
+                DisplayRotation::Rotate180 => (SIZE_H as i32 - 1 - p.x, SIZE_V as i32 - 1 - p.y),
+                DisplayRotation::Rotate270 => (p.y, SIZE_V as i32 - 1 - p.x),
+            };
+
+            if (x < 0) || (x >= SIZE_H as i32) || (y < 0) || y >= SIZE_V as i32 {
                 continue;
             }
 
-            let mask: u8 = 1 << (7 - (point.x % 8));
-            let index = point.y as usize * SIZE_H as usize / 8 + point.x as usize / 8;
+            let mask: u8 = 1 << (7 - (x % 8));
+            let index = y as usize * SIZE_H as usize / 8 + x as usize / 8;
             assert!(index < IMAGE_SIZE);
 
             match color {

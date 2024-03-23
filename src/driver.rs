@@ -1,3 +1,5 @@
+//! Generic SPI driver for all EPDs
+
 use embedded_hal::{delay::DelayNs, digital::InputPin, digital::OutputPin, spi::SpiDevice};
 use std::marker::PhantomData;
 
