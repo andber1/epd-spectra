@@ -46,6 +46,8 @@ pub struct Epd<SPI, BUSY, DC, RST, DELAY> {
     dc: DC,
     /// reset pin, active low
     rst: RST,
+    /// chunk size used for SPI writes (0: no chunks)
+    spi_chunk_size: usize,
     _spi: PhantomData<SPI>,
     _delay: PhantomData<DELAY>,
 }
@@ -58,18 +60,22 @@ where
     RST: OutputPin,
     DELAY: DelayNs,
 {
-    /// Create a new e-paper driver and run initialization sequence
+    /// Create a new e-paper driver and run initialization sequence.
+    /// spi_chunk_size determines the data chunk size for SPI writes, 0 means no chunks.
+    /// E.g. Linux has a default buffer size of 4096. So spi_chunk_size must be equal to or smaller than 4096.
     pub fn new(
         spi: &mut SPI,
         busy: BUSY,
         dc: DC,
         rst: RST,
         delay: &mut DELAY,
+        spi_chunk_size: usize,
     ) -> Result<Self, EpdError<SPI, DC, RST>> {
         let mut epd = Self {
             busy,
             dc,
             rst,
+            spi_chunk_size,
             _spi: PhantomData,
             _delay: PhantomData,
         };
@@ -137,10 +143,20 @@ where
         data: &[u8],
     ) -> Result<(), EpdError<SPI, DC, RST>> {
         self.dc.set_low().map_err(Error::GpioDc)?;
-        //TODO Implement single byte write or divide buffer into chunks. SPI hardware buffer might not be large enough for whole data.
-        spi.write(&[cmd as u8])?;
+        self.write(spi, &[cmd as u8])?;
         self.dc.set_high().map_err(Error::GpioDc)?;
-        spi.write(data)?;
+        self.write(spi, data)?;
+        Ok(())
+    }
+
+    fn write(&mut self, spi: &mut SPI, data: &[u8]) -> Result<(), EpdError<SPI, DC, RST>> {
+        if self.spi_chunk_size > 0 {
+            for chunk in data.chunks(self.spi_chunk_size) {
+                spi.write(chunk)?;
+            }
+        } else {
+            spi.write(data)?;
+        }
         Ok(())
     }
 

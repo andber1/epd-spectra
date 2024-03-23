@@ -12,9 +12,7 @@
 //! | GPIO 17        | RESET |
 //!
 //! If you have another display size, simply replace `Display2in66` with your display.
-//! You have to enable SPI (e.g. with raspi-config) and may have to increase the SPI buffer size
-//! (see [here](https://stackoverflow.com/questions/16427996/increase-spi-buffer-size-in-raspbian)).
-//! You have to execute the binary with sudo.
+//! You have to enable SPI (e.g. with raspi-config) and you have to execute the binary with sudo.
 
 use embedded_graphics::{
     mono_font::{iso_8859_1::FONT_10X20, MonoTextStyle},
@@ -58,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rst = gpio.get(17)?.into_output();
     let mut delay = Delay {};
 
-    let mut epd = Epd::new(&mut spi_device, busy, dc, rst, &mut delay)?;
+    let mut epd = Epd::new(&mut spi_device, busy, dc, rst, &mut delay, 4096)?;
 
     // show the display
     epd.update(&display, &mut spi_device)?;
