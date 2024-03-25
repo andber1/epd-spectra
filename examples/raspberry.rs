@@ -12,7 +12,8 @@
 //! | GPIO 17        | RESET |
 //!
 //! If you have another display size, simply replace `Display2in66` with your display.
-//! You have to enable SPI (e.g. with raspi-config) and you have to execute the binary with sudo.
+//! You have to enable SPI (e.g. with raspi-config) and you have to execute the binary with sudo:
+//! `cargo build --example raspberry --features="std" && sudo ./target/debug/examples/raspberry`
 
 use embedded_graphics::{
     mono_font::{iso_8859_1::FONT_10X20, MonoTextStyle},
@@ -60,6 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // show the display
     epd.update(&display, &mut spi_device)?;
+    epd.power_off(&mut spi_device, &mut delay)?;
 
     Ok(())
 }

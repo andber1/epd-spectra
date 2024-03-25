@@ -6,5 +6,5 @@ This library contains a driver written in Rust for the Spectra tri-colour (white
 
 The C++ driver can be found [here](https://github.com/PervasiveDisplays/EPD_Driver_GU_small).
 
-This library is tested with the 2.66 inch display and the [EXT3-1 extension kit](https://docs.pervasivedisplays.com/epd-usage/development-kits/ext3-1) from Pervasive Displays with a Raspberry Zero. See the examples folder to get started.
+This library is tested with the 2.66 inch display and the [EXT3-1 extension kit](https://docs.pervasivedisplays.com/epd-usage/development-kits/ext3-1) from Pervasive Displays on a Raspberry Pi Zero with std support and on a STM32 Nucleo board with no_std. See the examples folder to get started.
 

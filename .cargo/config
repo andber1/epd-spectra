@@ -1,0 +1,8 @@
+# This file is used for flashing and running the STM32 Nucleo example
+
+[target.thumbv7em-none-eabihf]
+rustflags = [
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=-Tdefmt.x",
+]
+runner = "probe-rs run --chip STM32F401re"

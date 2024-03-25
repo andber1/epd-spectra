@@ -1,12 +1,12 @@
-//! Specific display buffers for each EPDs and embedded_graphics related implementations
+//! Specific display buffers for each EPDs and `embedded_graphics` related implementations
 
+use core::cmp::max;
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Size},
     pixelcolor::{BinaryColor, PixelColor, Rgb888, RgbColor},
     Pixel,
 };
-use std::cmp::max;
 
 /// Colors supported by the e-paper displays
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -85,6 +85,7 @@ impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize>
     pub fn set_rotation(&mut self, rotation: DisplayRotation) {
         self.rotation = rotation;
     }
+    #[must_use]
     pub fn rotation(&self) -> DisplayRotation {
         self.rotation
     }
@@ -130,6 +131,7 @@ impl<const SIZE_V: u32, const SIZE_H: u32, const IMAGE_SIZE: usize> DrawTarget
     type Color = TriColor;
     type Error = core::convert::Infallible;
 
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
     fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
     where
         I: IntoIterator<Item = Pixel<Self::Color>>,

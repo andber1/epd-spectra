@@ -1,7 +1,7 @@
 //! Generic SPI driver for all EPDs
 
+use core::marker::PhantomData;
 use embedded_hal::{delay::DelayNs, digital::InputPin, digital::OutputPin, spi::SpiDevice};
-use std::marker::PhantomData;
 
 use crate::DisplayBuffer;
 
@@ -24,14 +24,24 @@ const REG_DATA_PSR: &[u8] = &[0xcf, 0x8d];
 
 // Sadly we cannot use #[from] more than once.
 // See here for similiar problem: https://stackoverflow.com/questions/37347311/how-is-there-a-conflicting-implementation-of-from-when-using-a-generic-type
+
+#[cfg(feature = "std")]
 #[derive(thiserror::Error, Debug)]
 pub enum Error<SpiError, DcError, RstError> {
     #[error("SPI error: {0}")]
-    Spi(#[from] SpiError),
+    Spi(#[source] SpiError),
     #[error("Error with GPIO 'DC': {0}")]
     GpioDc(#[source] DcError),
     #[error("Error with GPIO 'RESET': {0}")]
     GpioRst(#[source] RstError),
+}
+
+#[cfg(not(feature = "std"))]
+#[derive(Debug)]
+pub enum Error<SpiError, DcError, RstError> {
+    Spi(SpiError),
+    GpioDc(DcError),
+    GpioRst(RstError),
 }
 
 type EpdError<SPI, DC, RST> = Error<
@@ -54,6 +64,7 @@ pub struct Epd<SPI, BUSY, DC, RST, DELAY> {
     _delay: PhantomData<DELAY>,
 }
 
+#[allow(clippy::missing_errors_doc)]
 impl<SPI, BUSY, DC, RST, DELAY> Epd<SPI, BUSY, DC, RST, DELAY>
 where
     SPI: SpiDevice,
@@ -63,8 +74,8 @@ where
     DELAY: DelayNs,
 {
     /// Create a new e-paper driver and run initialization sequence.
-    /// spi_chunk_size determines the data chunk size for SPI writes, 0 means no chunks.
-    /// E.g. Linux has a default buffer size of 4096. So spi_chunk_size must be equal to or smaller than 4096.
+    /// `spi_chunk_size` determines the data chunk size for SPI writes, 0 means no chunks.
+    /// E.g. Linux has a default buffer size of 4096. So `spi_chunk_size` must be equal to or smaller than 4096.
     pub fn new(
         spi: &mut SPI,
         busy: BUSY,
@@ -154,10 +165,10 @@ where
     fn write(&mut self, spi: &mut SPI, data: &[u8]) -> Result<(), EpdError<SPI, DC, RST>> {
         if self.spi_chunk_size > 0 {
             for chunk in data.chunks(self.spi_chunk_size) {
-                spi.write(chunk)?;
+                spi.write(chunk).map_err(Error::Spi)?;
             }
         } else {
-            spi.write(data)?;
+            spi.write(data).map_err(Error::Spi)?;
         }
         Ok(())
     }
@@ -178,3 +189,10 @@ where
         while self.busy.is_low().unwrap() {}
     }
 }
+
+/// SPI mode needed for EPD driver
+/// Mode0: CPOL 0, CPHA 0
+pub const SPI_MODE: embedded_hal::spi::Mode = embedded_hal::spi::Mode {
+    phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
+    polarity: embedded_hal::spi::Polarity::IdleLow,
+};

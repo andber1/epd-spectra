@@ -3,6 +3,10 @@
 //! [Pervasive Displays Inc](https://github.com/PervasiveDisplays).
 //!
 //! See the examples folder to get started.
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 pub mod driver;
 pub mod graphics;
