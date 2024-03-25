@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: thumbv7em-none-eabihf
+    - name: Build std
+      run: cargo build --example raspberry --features="std"
+    - name: Build no_std
+      run: cargo build --example nucleo-f401re --target thumbv7em-none-eabihf
+    - name: Clippy std
+      run: cargo clippy --example raspberry --features="std" -- -Dwarnings -Wclippy::pedantic
+    - name: Clippy no_std
+      run: cargo clippy --example nucleo-f401re --target thumbv7em-none-eabihf -- -Dwarnings -Wclippy::pedantic
