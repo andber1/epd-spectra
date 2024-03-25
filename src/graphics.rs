@@ -1,10 +1,13 @@
 //! Specific display buffers for each EPDs and `embedded_graphics` related implementations
 
-use core::cmp::max;
+use core::cmp::{max, min};
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Size},
-    pixelcolor::{BinaryColor, PixelColor, Rgb888, RgbColor},
+    pixelcolor::{
+        raw::{RawData, RawU2},
+        BinaryColor, PixelColor, Rgb888, RgbColor,
+    },
     Pixel,
 };
 
@@ -17,7 +20,20 @@ pub enum TriColor {
 }
 
 impl PixelColor for TriColor {
-    type Raw = ();
+    type Raw = RawU2;
+}
+
+impl From<RawU2> for TriColor {
+    fn from(data: RawU2) -> Self {
+        let data = data.into_inner();
+        if data & 0b01 != 0 {
+            TriColor::Black
+        } else if data & 0b10 != 0 {
+            TriColor::Red
+        } else {
+            TriColor::White
+        }
+    }
 }
 
 impl From<BinaryColor> for TriColor {
@@ -41,9 +57,13 @@ impl From<TriColor> for Rgb888 {
 
 impl From<Rgb888> for TriColor {
     fn from(p: Rgb888) -> TriColor {
-        if p.r() > p.g() && p.r() > p.b() {
+        let min = min(min(p.r(), p.g()), p.b());
+        let max = max(max(p.r(), p.g()), p.b());
+        let chroma = max - min;
+        let brightness = max;
+        if chroma > u8::MAX / 3 && p.r() > p.g() && p.r() > p.b() {
             TriColor::Red
-        } else if max(max(p.r(), p.g()), p.b()) > u8::MAX / 2 {
+        } else if brightness > u8::MAX / 2 {
             TriColor::White
         } else {
             TriColor::Black

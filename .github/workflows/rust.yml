@@ -28,3 +28,5 @@ jobs:
       run: cargo clippy --example raspberry --features="std" -- -Dwarnings -Wclippy::pedantic
     - name: Clippy no_std
       run: cargo clippy --example nucleo-f401re --target thumbv7em-none-eabihf -- -Dwarnings -Wclippy::pedantic
+    - name: Format
+      run: cargo fmt --check
