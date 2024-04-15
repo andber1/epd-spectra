@@ -12,8 +12,9 @@ use embedded_graphics::{
 };
 
 /// Colors supported by the e-paper displays
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum TriColor {
+    #[default]
     White,
     Black,
     Red,
