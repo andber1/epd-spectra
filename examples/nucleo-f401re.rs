@@ -83,7 +83,8 @@ fn main() -> ! {
     let mut spi_device = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs);
 
     // create EPD driver
-    let mut epd = Epd::new(&mut spi_device, busy, dc, reset, &mut delay, 0).unwrap();
+    let epd = Epd::new(&mut spi_device, busy, dc, reset, &mut delay, 0);
+    let mut epd = epd.init(&mut spi_device, &mut delay).unwrap();
 
     let mut display = Display2in66::default();
     Text::new(
@@ -107,7 +108,7 @@ fn main() -> ! {
     ferris.draw(&mut display).unwrap();
 
     epd.update(&display, &mut spi_device).unwrap();
-    epd.power_off(&mut spi_device, &mut delay).unwrap();
+    let _inactive_epd = epd.power_off(&mut spi_device, &mut delay).unwrap();
 
     loop {
         led.toggle();

@@ -62,11 +62,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rst = gpio.get(17)?.into_output();
     let mut delay = Delay {};
 
-    let mut epd = Epd::new(&mut spi_device, busy, dc, rst, &mut delay, 4096)?;
+    let epd = Epd::new(&mut spi_device, busy, dc, rst, &mut delay, 4096);
+    let mut epd = epd.init(&mut spi_device, &mut delay)?;
 
     // show the display
     epd.update(&display, &mut spi_device)?;
-    epd.power_off(&mut spi_device, &mut delay)?;
+    let _inactive_epd = epd.power_off(&mut spi_device, &mut delay)?;
 
     Ok(())
 }
