@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut epd = epd.init(&mut spi_device, &mut delay)?;
 
     // show the display
-    epd.update(&display, &mut spi_device)?;
+    epd.update(&display, &mut spi_device, &mut delay)?;
     let _inactive_epd = epd.power_off(&mut spi_device, &mut delay)?;
 
     Ok(())

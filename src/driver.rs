@@ -22,9 +22,11 @@ const REG_DATA_INPUT_TEMP: &[u8] = &[0x19];
 const REG_DATA_ACTIVE_TEMP: &[u8] = &[0x02];
 const REG_DATA_PSR: &[u8] = &[0xcf, 0x8d];
 
+/// Timeout value when waiting for busy signal
+const TIMEOUT_MS: i32 = 60_000;
+
 // Sadly we cannot use #[from] more than once.
 // See here for similiar problem: https://stackoverflow.com/questions/37347311/how-is-there-a-conflicting-implementation-of-from-when-using-a-generic-type
-
 #[cfg(feature = "std")]
 #[derive(thiserror::Error, Debug)]
 pub enum Error<SpiError, DcError, RstError> {
@@ -34,6 +36,8 @@ pub enum Error<SpiError, DcError, RstError> {
     GpioDc(#[source] DcError),
     #[error("Error with GPIO 'RESET': {0}")]
     GpioRst(#[source] RstError),
+    #[error("Timeout while waiting for busy signal")]
+    Timeout,
 }
 
 #[cfg(not(feature = "std"))]
@@ -42,6 +46,7 @@ pub enum Error<SpiError, DcError, RstError> {
     Spi(SpiError),
     GpioDc(DcError),
     GpioRst(RstError),
+    Timeout,
 }
 
 type EpdError<SPI, DC, RST> = Error<
@@ -120,7 +125,7 @@ where
     ) -> EpdResult<Active, SPI, BUSY, DC, RST, DELAY> {
         self.dc.set_high().map_err(Error::GpioDc)?;
         self.reset(delay)?;
-        self.soft_reset(spi)?;
+        self.soft_reset(spi, delay)?;
         self.send_data(spi, Command::InputTemperature, REG_DATA_INPUT_TEMP)?;
         self.send_data(spi, Command::ActiveTemperature, REG_DATA_ACTIVE_TEMP)?;
         self.send_data(spi, Command::Psr, REG_DATA_PSR)?;
@@ -155,11 +160,12 @@ where
         &mut self,
         display: &impl DisplayBuffer,
         spi: &mut SPI,
+        delay: &mut DELAY,
     ) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::BufferBlack, display.get_buffer_black())?;
         self.send_data(spi, Command::BufferRed, display.get_buffer_red())?;
-        self.power_on(spi)?;
-        self.display_refresh(spi)?;
+        self.power_on(spi, delay)?;
+        self.display_refresh(spi, delay)?;
         Ok(())
     }
 
@@ -178,7 +184,7 @@ where
         delay: &mut DELAY,
     ) -> EpdResult<Inactive, SPI, BUSY, DC, RST, DELAY> {
         self.send_data(spi, Command::PowerOff, &[0x0])?;
-        self.wait_busy();
+        self.wait_busy(delay)?;
         self.dc.set_low().map_err(Error::GpioDc)?;
         delay.delay_ms(150);
         self.rst.set_low().map_err(Error::GpioRst)?;
@@ -214,9 +220,9 @@ where
         Ok(())
     }
 
-    fn power_on(&mut self, spi: &mut SPI) -> Result<(), EpdError<SPI, DC, RST>> {
+    fn power_on(&mut self, spi: &mut SPI, delay: &mut DELAY) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::PowerOn, &[0x0])?;
-        self.wait_busy();
+        self.wait_busy(delay)?;
         Ok(())
     }
 
@@ -244,20 +250,38 @@ where
         Ok(())
     }
 
-    fn soft_reset(&mut self, spi: &mut SPI) -> Result<(), EpdError<SPI, DC, RST>> {
+    fn soft_reset(
+        &mut self,
+        spi: &mut SPI,
+        delay: &mut DELAY,
+    ) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::Psr, REG_DATA_SOFT_RESET)?;
-        self.wait_busy();
+        self.wait_busy(delay)?;
         Ok(())
     }
 
-    fn display_refresh(&mut self, spi: &mut SPI) -> Result<(), EpdError<SPI, DC, RST>> {
+    fn display_refresh(
+        &mut self,
+        spi: &mut SPI,
+        delay: &mut DELAY,
+    ) -> Result<(), EpdError<SPI, DC, RST>> {
         self.send_data(spi, Command::Refresh, &[0x0])?;
-        self.wait_busy();
+        self.wait_busy(delay)?;
         Ok(())
     }
 
-    fn wait_busy(&mut self) {
-        while self.busy.is_low().unwrap() {}
+    fn wait_busy(&mut self, delay: &mut DELAY) -> Result<(), EpdError<SPI, DC, RST>> {
+        let delay_ms = 1;
+        let mut timeout = TIMEOUT_MS;
+        while self.busy.is_low().unwrap() && timeout > 0 {
+            delay.delay_ms(delay_ms);
+            timeout -= i32::try_from(delay_ms).unwrap();
+        }
+        if timeout <= 0 {
+            Err(Error::Timeout)
+        } else {
+            Ok(())
+        }
     }
 }
 

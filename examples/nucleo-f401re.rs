@@ -107,7 +107,7 @@ fn main() -> ! {
     let ferris: Image<_> = Image::new(&ferris, Point::new(0, 100));
     ferris.draw(&mut display).unwrap();
 
-    epd.update(&display, &mut spi_device).unwrap();
+    epd.update(&display, &mut spi_device, &mut delay).unwrap();
     let _inactive_epd = epd.power_off(&mut spi_device, &mut delay).unwrap();
 
     loop {
