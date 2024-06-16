@@ -3,7 +3,7 @@ name = "epd-spectra"
 description = "Driver for Spectra EPDs from Pervasive Displays Inc"
 keywords = ["embedded", "epaper", "display", "epd", "eink"]
 categories = ["embedded", "no-std"]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/andber1/epd-spectra"
@@ -23,7 +23,7 @@ required-features = ["std"]
 
 # Raspberry example
 [target.'cfg(unix)'.dev-dependencies]
-rppal = { version = "0.17", features = ["hal"]}
+rppal = { version = "0.18", features = ["hal"]}
 
 # STM32 Nucleo example
 [target.thumbv7em-none-eabihf.dev-dependencies]
