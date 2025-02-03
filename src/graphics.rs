@@ -207,3 +207,4 @@ pub type Display2in87 = display_type!(296, 128);
 pub type Display3in70 = display_type!(416, 240);
 pub type Display4in17 = display_type!(300, 400);
 pub type Display4in37 = display_type!(480, 176);
+pub type Display2in9 = display_type!(384, 168);
