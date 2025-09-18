@@ -1,3 +1,12 @@
+#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "numpy~=2.3",
+#     "pillow~=11.3",
+# ]
+# ///
 import sys
 import numpy as np
 from pathlib import Path
